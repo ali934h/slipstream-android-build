@@ -88,7 +88,8 @@ cd "$SLIPSTREAM_DIR"
 
 if [[ $UPDATE_ONLY -eq 1 ]]; then
   log "Pulling latest changes..."
-  git pull
+  git fetch origin
+  git reset --hard origin/$(git remote show origin | grep 'HEAD branch' | awk '{print $NF}')
 fi
 
 log "Updating submodules..."
