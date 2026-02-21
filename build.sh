@@ -22,8 +22,10 @@ SLIPSTREAM_REPO="https://github.com/Mygod/slipstream-rust.git"
 SLIPSTREAM_DIR="$HOME/slipstream-rust"
 TARGET="aarch64-linux-android"
 ANDROID_ABI="arm64-v8a"
-OUTPUT="$SLIPSTREAM_DIR/target/$TARGET/release/slipstream-client"
+OPENSSL_VERSION="3.3.3"
+OPENSSL_BUILD_DIR="$HOME/openssl-android"
 PICOQUIC_BUILD_DIR="$SLIPSTREAM_DIR/.picoquic-build-android"
+OUTPUT="$SLIPSTREAM_DIR/target/$TARGET/release/slipstream-client"
 
 # ─── Parse args ───────────────────────────────────────────────────────────────
 UPDATE_ONLY=0
@@ -64,7 +66,6 @@ if [[ $UPDATE_ONLY -eq 0 ]]; then
   else
     log "NDK already present, skipping download."
   fi
-
   CLANG="$NDK_BIN/aarch64-linux-android${ANDROID_API}-clang"
   [[ -f "$CLANG" ]] || die "NDK clang not found at: $CLANG"
 fi
@@ -113,13 +114,45 @@ export RUST_ANDROID_GRADLE_AR="$AR"
 export PICOQUIC_AUTO_BUILD=0
 export PICOQUIC_BUILD_DIR="$PICOQUIC_BUILD_DIR"
 
-# ─── Step 7: Build picoquic for Android ────────────────────────────────────
+# ─── Step 7: Build OpenSSL for Android ───────────────────────────────────
+if [[ ! -f "$OPENSSL_BUILD_DIR/lib/libssl.a" ]]; then
+  log "Building OpenSSL ${OPENSSL_VERSION} for Android arm64..."
+  OPENSSL_SRC="$HOME/openssl-src"
+  if [[ ! -d "$OPENSSL_SRC" ]]; then
+    curl -L -o /tmp/openssl.tar.gz "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz"
+    mkdir -p "$OPENSSL_SRC"
+    tar -xzf /tmp/openssl.tar.gz -C "$OPENSSL_SRC" --strip-components=1
+    rm /tmp/openssl.tar.gz
+  fi
+  mkdir -p "$OPENSSL_BUILD_DIR"
+  cd "$OPENSSL_SRC"
+  export PATH="$NDK_BIN:$PATH"
+  ./Configure android-arm64 \
+    -D__ANDROID_API__=$ANDROID_API \
+    --prefix="$OPENSSL_BUILD_DIR" \
+    no-shared no-tests \
+    CC="$CC" AR="$AR" RANLIB="$RANLIB"
+  make -j$(nproc)
+  make install_sw
+  cd "$SLIPSTREAM_DIR"
+else
+  log "OpenSSL already built, skipping."
+fi
+
+export OPENSSL_ROOT_DIR="$OPENSSL_BUILD_DIR"
+export OPENSSL_INCLUDE_DIR="$OPENSSL_BUILD_DIR/include"
+export OPENSSL_CRYPTO_LIBRARY="$OPENSSL_BUILD_DIR/lib/libcrypto.a"
+export OPENSSL_SSL_LIBRARY="$OPENSSL_BUILD_DIR/lib/libssl.a"
+export OPENSSL_USE_STATIC_LIBS=TRUE
+
+# ─── Step 8: Build picoquic for Android ────────────────────────────────────
 log "Building picoquic for Android..."
 rm -rf "$PICOQUIC_BUILD_DIR"
 bash "$SLIPSTREAM_DIR/scripts/build_picoquic.sh"
 
-# ─── Step 8: Build slipstream-client ─────────────────────────────────────────
+# ─── Step 9: Build slipstream-client ─────────────────────────────────────────
 log "Starting build for $TARGET..."
+cd "$SLIPSTREAM_DIR"
 cargo clean -p slipstream-ffi
 cargo build -p slipstream-client --release --target "$TARGET" --features openssl-vendored
 
