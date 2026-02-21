@@ -101,6 +101,7 @@ git submodule update --init --recursive
 # ─── Step 6: Export build env vars ─────────────────────────────────────────
 log "Setting up environment variables..."
 export ANDROID_NDK_HOME="$NDK_DIR"
+export ANDROID_NDK_ROOT="$NDK_DIR"
 export ANDROID_API=$ANDROID_API
 export ANDROID_ABI=$ANDROID_ABI
 export ANDROID_PLATFORM="android-${ANDROID_API}"
