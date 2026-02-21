@@ -101,7 +101,9 @@ log "Starting build for $TARGET..."
 export ANDROID_NDK_HOME="$NDK_DIR"
 export ANDROID_API=$ANDROID_API
 export CC="$NDK_BIN/aarch64-linux-android${ANDROID_API}-clang"
+export CXX="$NDK_BIN/aarch64-linux-android${ANDROID_API}-clang++"
 export AR="$NDK_BIN/llvm-ar"
+export RANLIB="$NDK_BIN/llvm-ranlib"
 export RUST_ANDROID_GRADLE_CC="$CC"
 export RUST_ANDROID_GRADLE_AR="$AR"
 export PICOQUIC_AUTO_BUILD=0
