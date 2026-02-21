@@ -21,7 +21,9 @@ NDK_BIN="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin"
 SLIPSTREAM_REPO="https://github.com/Mygod/slipstream-rust.git"
 SLIPSTREAM_DIR="$HOME/slipstream-rust"
 TARGET="aarch64-linux-android"
+ANDROID_ABI="arm64-v8a"
 OUTPUT="$SLIPSTREAM_DIR/target/$TARGET/release/slipstream-client"
+PICOQUIC_BUILD_DIR="$SLIPSTREAM_DIR/.picoquic-build-android"
 
 # ─── Parse args ───────────────────────────────────────────────────────────────
 UPDATE_ONLY=0
@@ -95,11 +97,13 @@ fi
 log "Updating submodules..."
 git submodule update --init --recursive
 
-# ─── Step 6: Build ────────────────────────────────────────────────────────────
-log "Starting build for $TARGET..."
-
+# ─── Step 6: Export build env vars ─────────────────────────────────────────
+log "Setting up environment variables..."
 export ANDROID_NDK_HOME="$NDK_DIR"
 export ANDROID_API=$ANDROID_API
+export ANDROID_ABI=$ANDROID_ABI
+export ANDROID_PLATFORM="android-${ANDROID_API}"
+export TARGET="$TARGET"
 export CC="$NDK_BIN/aarch64-linux-android${ANDROID_API}-clang"
 export CXX="$NDK_BIN/aarch64-linux-android${ANDROID_API}-clang++"
 export AR="$NDK_BIN/llvm-ar"
@@ -107,8 +111,15 @@ export RANLIB="$NDK_BIN/llvm-ranlib"
 export RUST_ANDROID_GRADLE_CC="$CC"
 export RUST_ANDROID_GRADLE_AR="$AR"
 export PICOQUIC_AUTO_BUILD=0
-export PICOQUIC_BUILD_DIR="$SLIPSTREAM_DIR/.picoquic-build-android"
+export PICOQUIC_BUILD_DIR="$PICOQUIC_BUILD_DIR"
 
+# ─── Step 7: Build picoquic for Android ────────────────────────────────────
+log "Building picoquic for Android..."
+rm -rf "$PICOQUIC_BUILD_DIR"
+bash "$SLIPSTREAM_DIR/scripts/build_picoquic.sh"
+
+# ─── Step 8: Build slipstream-client ─────────────────────────────────────────
+log "Starting build for $TARGET..."
 cargo clean -p slipstream-ffi
 cargo build -p slipstream-client --release --target "$TARGET" --features openssl-vendored
 
